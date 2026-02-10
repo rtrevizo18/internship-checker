@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+OWNER="SimplifyJobs"
+REPO="Summer2026-Internships"
+BRANCH="dev"
+CHECK_INTERVAL=60
+USER_EMAIL="YOUR_EMAIL_HERE"
+LAST_SHA=$(curl -s https://api.github.com/repos/$OWNER/$REPO/commits/$BRANCH \
+  | jq -r '.sha')
+while true; do
+        sleep "$CHECK_INTERVAL"
+
+        CURRENT_COMMIT=$(curl -s https://api.github.com/repos/$OWNER/$REPO/commits/$BRANCH)
+
+        CURRENT_SHA=$(echo "$CURRENT_COMMIT" | jq -r '.sha')
+
+        if [ "$CURRENT_SHA" != "$LAST_SHA" ]; then
+                FILE_ADDITIONS=$(echo "$CURRENT_COMMIT" | jq -r '.stats.additions')
+
+                if (( FILE_ADDITIONS  > 0 )); then
+                        echo "Internship Repo Updated!" \
+                                | mail -s "New Internship" $USER_EMAIL
+                fi
+
+                LAST_SHA=$CURRENT_SHA
+        fi
+done
