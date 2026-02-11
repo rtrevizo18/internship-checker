@@ -4,24 +4,39 @@ OWNER="SimplifyJobs"
 REPO="Summer2026-Internships"
 BRANCH="dev"
 CHECK_INTERVAL=60
-USER_EMAIL="YOUR_EMAIL_HERE"
-LAST_SHA=$(curl -s https://api.github.com/repos/$OWNER/$REPO/commits/$BRANCH \
-  | jq -r '.sha')
+EMAIL="YOUR_EMAIL_HERE"
+
+fetch_hash(){
+        curl -s https://api.github.com/repos/$OWNER/$REPO/commits/$BRANCH \
+                | jq -r '.sha'
+}
+
+fetch_positions(){
+        curl -s https://github.com/$OWNER/$REPO \
+                | grep -oP 'Software Engineering.*?\(\K\d+(?=\))' \
+                | head -n 1
+}
+
+LAST_SHA=$(fetch_hash)
+NUM_POSITIONS=$(fetch_positions)
 while true; do
         sleep "$CHECK_INTERVAL"
 
-        CURRENT_COMMIT=$(curl -s https://api.github.com/repos/$OWNER/$REPO/commits/$BRANCH)
+        CURRENT_SHA=$(fetch_hash)
 
-        CURRENT_SHA=$(echo "$CURRENT_COMMIT" | jq -r '.sha')
+        [[ -n "$CURRENT_SHA" ]] || continue
 
         if [ "$CURRENT_SHA" != "$LAST_SHA" ]; then
-                FILE_ADDITIONS=$(echo "$CURRENT_COMMIT" | jq -r '.stats.additions')
+                CURRENT_POSITIONS=$(fetch_positions)
 
-                if (( FILE_ADDITIONS  > 0 )); then
-                        echo "Internship Repo Updated!" \
-                                | mail -s "New Internship" $USER_EMAIL
+                # If current positions is null, we can just continue
+                [[ "$CURRENT_POSITIONS" =~ ^[0-9]+$ ]] || continue
+
+                if (( CURRENT_POSITIONS  > NUM_POSITIONS )); then
+                        echo "Internships increased: $NUM_POSITIONS -> $CURRENT_POSITIONS" \
+                                | mail -s "New Internships!" "$EMAIL"
                 fi
-
+                NUM_POSITIONS=$CURRENT_POSITIONS
                 LAST_SHA=$CURRENT_SHA
         fi
 done
